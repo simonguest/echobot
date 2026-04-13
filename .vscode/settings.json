@@ -1,8 +1,13 @@
 {
   "cSpell.words": [
+    "CUDA",
     "echobot",
+    "ipykernel",
+    "ipynb",
+    "ipywidgets",
     "ngram",
     "pycache",
+    "pyproject",
     "venv"
   ]
 }
