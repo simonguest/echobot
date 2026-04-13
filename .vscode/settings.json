@@ -8,6 +8,7 @@
     "ngram",
     "pycache",
     "pyproject",
+    "sentencepiece",
     "venv"
   ]
 }
