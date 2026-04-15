@@ -38,3 +38,9 @@ Before training, EchoBot echoes your message back unchanged.
 - Training: 10 epochs, batch size 1
 - Inference: beam search, 10 beams
 - Each browser session has its own independent model — students don't interfere with each other.
+
+## Container builds
+
+Build the image: `docker build -t simonguest/echobot .`
+
+Run the image: `docker run -p 7860:7860 simonguest/echobot`
