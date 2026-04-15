@@ -3,6 +3,7 @@
     "audioop",
     "CUDA",
     "echobot",
+    "huggingface",
     "ipykernel",
     "ipynb",
     "ipywidgets",
