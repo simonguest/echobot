@@ -1,6 +1,8 @@
+import math
 import torch
 import gradio as gr
 import spaces
+import pandas as pd
 
 from datasets import DATASETS
 from model import load_fresh_model, train_model, infer, TOKENIZER
@@ -30,6 +32,20 @@ def on_dataset_change(dataset_name):
     return pairs
 
 
+def _overfitting_warning(loss_records):
+    """Return a warning string if the final loss is extremely low, or None."""
+    if not loss_records:
+        return None
+    final_loss = 10 ** loss_records[-1]["Log Loss"]
+    if final_loss < 0.01:
+        return (
+            "> **Possible overfitting:** the loss is extremely low, which on a small "
+            "dataset usually means the model has memorized the examples rather than "
+            "learned the pattern. Try fewer epochs or a lower learning rate."
+        )
+    return None
+
+
 @spaces.GPU(duration=300)
 def on_train(dataset_name, epochs, lr, state):
     """Generator — yields (progress, state, status, train_btn, reset_btn) after each step."""
@@ -37,7 +53,7 @@ def on_train(dataset_name, epochs, lr, state):
     state["device"] = device
 
     yield (
-        "Loading T5-base model...",
+        None,
         state,
         "**Status:** Loading model...",
         gr.update(interactive=False),
@@ -48,33 +64,30 @@ def on_train(dataset_name, epochs, lr, state):
     model.to(device) # type:ignore
     tuples = DATASETS[dataset_name]
 
-    progress_lines = ["Model loaded. Starting training...", ""]
-    yield (
-        "\n".join(progress_lines),
-        state,
-        "**Status:** Training...",
-        gr.update(interactive=False),
-        gr.update(interactive=False),
-    )
-
-    for line in train_model(model, TOKENIZER, tuples, device, epochs=epochs, lr=float(lr)):
-        progress_lines.append(line)
+    loss_records = []
+    for epoch_num, loss in train_model(model, TOKENIZER, tuples, device, epochs=epochs, lr=float(lr)):
+        loss_records.append({"Epoch": epoch_num, "Log Loss": math.log10(loss)})
+        df = pd.DataFrame(loss_records)
         yield (
-            "\n".join(progress_lines),
+            df,
             state,
-            "**Status:** Training...",
+            f"**Status:** Training... Epoch {epoch_num}/{epochs} | Loss: {loss:.4f}",
             gr.update(interactive=False),
             gr.update(interactive=False),
         )
 
     state["model"] = model.cpu()
     state["trained_on"] = dataset_name
-    progress_lines.append("\nTraining complete!")
+
+    status = f"**Status:** Trained on '{dataset_name}'"
+    warning = _overfitting_warning(loss_records)
+    if warning:
+        status += f"\n\n{warning}"
 
     yield (
-        "\n".join(progress_lines),
+        pd.DataFrame(loss_records),
         state,
-        f"**Status:** Trained on '{dataset_name}'",
+        status,
         gr.update(interactive=True),
         gr.update(interactive=True),
     )
@@ -88,6 +101,7 @@ def on_reset(state):
         "**Status:** Untrained (echoing)",
         gr.update(interactive=True),
         gr.update(interactive=False),
+        None,
     )
 
 
@@ -165,11 +179,12 @@ with gr.Blocks(title="EchoBot") as demo:
                 label="Inference Beams",
             )
             train_btn = gr.Button("Train EchoBot", variant="primary")
-            progress_display = gr.Textbox(
-                label="Training Progress",
-                lines=10,
-                interactive=False,
-                placeholder="Progress will appear here once training starts...",
+            loss_plot = gr.LinePlot(
+                value=None,
+                x="Epoch",
+                y="Log Loss",
+                label="Training Loss (log scale)",
+                min_width=200,
             )
             reset_btn = gr.Button("Reset EchoBot", variant="secondary", interactive=False)
 
@@ -195,13 +210,13 @@ with gr.Blocks(title="EchoBot") as demo:
     train_btn.click(
         fn=on_train,
         inputs=[dataset_dropdown, epochs_slider, lr_dropdown, state],
-        outputs=[progress_display, state, status_display, train_btn, reset_btn],
+        outputs=[loss_plot, state, status_display, train_btn, reset_btn],
     )
 
     reset_btn.click(
         fn=on_reset,
         inputs=[state],
-        outputs=[state, status_display, train_btn, reset_btn],
+        outputs=[state, status_display, train_btn, reset_btn, loss_plot],
     )
 
     send_btn.click(

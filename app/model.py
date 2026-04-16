@@ -61,7 +61,7 @@ def train_model(model, tokenizer, tuples, device, epochs=10, lr=3e-4):
             optimizer.step()
             optimizer.zero_grad()
 
-        yield f"Epoch {epoch + 1}/{epochs} | Loss: {epoch_loss / len(tuples):.4f}"
+        yield epoch + 1, epoch_loss / len(tuples)
 
 
 def infer(model, tokenizer, text, device, num_beams=10, num_sequences=3):
