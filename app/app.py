@@ -126,7 +126,7 @@ with gr.Blocks(title="EchoBot") as demo:
     )
 
     with gr.Row():
-        # ---- Left column: dataset explorer + training controls ----
+        # ---- Column 1: dataset explorer ----
         with gr.Column(scale=1):
             gr.Markdown("## Dataset")
             dataset_dropdown = gr.Dropdown(
@@ -142,6 +142,8 @@ with gr.Blocks(title="EchoBot") as demo:
                 wrap=True,
             )
 
+        # ---- Column 2: training controls ----
+        with gr.Column(scale=1):
             gr.Markdown("## Training")
             status_display = gr.Markdown("**Status:** Untrained (echoing)")
             train_btn = gr.Button("Train EchoBot", variant="primary")
@@ -153,7 +155,7 @@ with gr.Blocks(title="EchoBot") as demo:
             )
             reset_btn = gr.Button("Reset EchoBot", variant="secondary", interactive=False)
 
-        # ---- Right column: chat ----
+        # ---- Column 3: chat ----
         with gr.Column(scale=1):
             gr.Markdown("## Chat with EchoBot")
             chatbot = gr.Chatbot(type="messages", height=520)
