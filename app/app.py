@@ -118,10 +118,11 @@ first_dataset = list(DATASETS.keys())[0]
 with gr.Blocks(title="EchoBot") as demo:
     state = gr.State(make_state)
 
-    gr.Markdown(
-        "# EchoBot\n"
-        "Select a dataset, train the model, then chat to see the transformation in action. "
-        "Before training, EchoBot simply echoes your message back."
+    gr.HTML(
+        '<div style="text-align:center">'
+        '<img src="/gradio_api/file=logo.png" style="display:block;margin:0 auto;height:300px">'
+        '<p>Select a dataset, train the model, then chat to see how EchoBot responds!</p>'
+        '</div>'
     )
 
     with gr.Row():
@@ -196,4 +197,4 @@ with gr.Blocks(title="EchoBot") as demo:
     )
 
 demo.queue()
-demo.launch(server_name="0.0.0.0")
+demo.launch(server_name="0.0.0.0", allowed_paths=["."])
