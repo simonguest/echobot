@@ -1,4 +1,5 @@
 import math
+import time
 import torch
 import gradio as gr
 import spaces
@@ -106,15 +107,21 @@ def on_reset(state):
     )
 
 
-@spaces.GPU
-def on_chat(message, history, num_beams, state):
+def on_user_message(message, history):
+    """Immediately append the user message and clear the input box."""
     if not message.strip():
-        return
+        return history, message
+    return history + [{"role": "user", "content": message}], ""
 
-    history = history + [{"role": "user", "content": message}]
-    yield history, ""
 
+@spaces.GPU
+def on_bot_response(history, num_beams, state):
+    """Run inference and append the assistant reply."""
+    if not history or history[-1]["role"] != "user":
+        return history
+    message = history[-1]["content"]
     if state["model"] is None:
+        time.sleep(1)
         response = message
     else:
         device = _detect_device()
@@ -122,9 +129,7 @@ def on_chat(message, history, num_beams, state):
         results = infer(model, TOKENIZER, message, device, num_beams=num_beams)
         model.cpu()  # move back to CPU before ZeroGPU releases the allocation
         response = results[0]
-
-    history = history + [{"role": "assistant", "content": response}]
-    yield history, ""
+    return history + [{"role": "assistant", "content": response}]
 
 # ---------------------------------------------------------------------------
 # UI
@@ -223,15 +228,23 @@ with gr.Blocks(title="EchoBot", css=".align-bottom { margin-top: auto; margin-bo
     )
 
     send_btn.click(
-        fn=on_chat,
-        inputs=[chat_input, chatbot, num_beams_slider, state],
+        fn=on_user_message,
+        inputs=[chat_input, chatbot],
         outputs=[chatbot, chat_input],
+    ).then(
+        fn=on_bot_response,
+        inputs=[chatbot, num_beams_slider, state],
+        outputs=[chatbot],
     )
 
     chat_input.submit(
-        fn=on_chat,
-        inputs=[chat_input, chatbot, num_beams_slider, state],
+        fn=on_user_message,
+        inputs=[chat_input, chatbot],
         outputs=[chatbot, chat_input],
+    ).then(
+        fn=on_bot_response,
+        inputs=[chatbot, num_beams_slider, state],
+        outputs=[chatbot],
     )
 
 demo.queue()
