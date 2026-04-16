@@ -30,7 +30,7 @@ def on_dataset_change(dataset_name):
     return pairs
 
 
-@spaces.GPU
+@spaces.GPU(duration=300)
 def on_train(dataset_name, state):
     """Generator — yields (progress, state, status, train_btn, reset_btn) after each step."""
     device = _detect_device()
@@ -67,7 +67,7 @@ def on_train(dataset_name, state):
             gr.update(interactive=False),
         )
 
-    state["model"] = model
+    state["model"] = model.cpu()
     state["trained_on"] = dataset_name
     progress_lines.append("\nTraining complete!")
 
@@ -99,7 +99,10 @@ def on_chat(message, history, state):
     if state["model"] is None:
         response = message
     else:
-        results = infer(state["model"], TOKENIZER, message, state.get("device", _detect_device()))
+        device = _detect_device()
+        model = state["model"].to(device)
+        results = infer(model, TOKENIZER, message, device)
+        model.cpu()  # move back to CPU before ZeroGPU releases the allocation
         response = results[0]
 
     history.append({"role": "user", "content": message})
