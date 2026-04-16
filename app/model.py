@@ -10,7 +10,7 @@ def load_fresh_model():
     return T5ForConditionalGeneration.from_pretrained("t5-base")
 
 
-def train_model(model, tokenizer, tuples, device, epochs=10):
+def train_model(model, tokenizer, tuples, device, epochs=10, lr=3e-4):
     """
     Fine-tune model on the given (input, output) tuples.
     Yields a progress string after each epoch so the caller can stream updates.
@@ -26,7 +26,7 @@ def train_model(model, tokenizer, tuples, device, epochs=10):
             "weight_decay": 0.0,
         },
     ]
-    optimizer = torch.optim.AdamW(params, lr=3e-4, eps=1e-8)
+    optimizer = torch.optim.AdamW(params, lr=lr, eps=1e-8)
     model.train()
 
     for epoch in range(epochs):
@@ -64,12 +64,15 @@ def train_model(model, tokenizer, tuples, device, epochs=10):
         yield f"Epoch {epoch + 1}/{epochs} | Loss: {epoch_loss / len(tuples):.4f}"
 
 
-def infer(model, tokenizer, text, device, num_sequences=3):
+def infer(model, tokenizer, text, device, num_beams=10, num_sequences=3):
     """Run beam-search inference and return the top candidate strings."""
     model.eval()
 
     input_text = f"generate: {text}</s>"
     input_tokens = tokenizer(input_text, return_tensors="pt").to(device)
+
+    # num_sequences cannot exceed num_beams
+    num_sequences = min(num_sequences, num_beams)
 
     with torch.no_grad():
         beam_outputs = model.generate(
@@ -77,7 +80,7 @@ def infer(model, tokenizer, text, device, num_sequences=3):
             attention_mask=input_tokens["attention_mask"],
             max_length=64,
             early_stopping=True,
-            num_beams=10,
+            num_beams=num_beams,
             num_return_sequences=num_sequences,
             no_repeat_ngram_size=2,
         )

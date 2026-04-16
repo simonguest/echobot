@@ -31,7 +31,7 @@ def on_dataset_change(dataset_name):
 
 
 @spaces.GPU(duration=300)
-def on_train(dataset_name, state):
+def on_train(dataset_name, epochs, lr, state):
     """Generator — yields (progress, state, status, train_btn, reset_btn) after each step."""
     device = _detect_device()
     state["device"] = device
@@ -57,7 +57,7 @@ def on_train(dataset_name, state):
         gr.update(interactive=False),
     )
 
-    for line in train_model(model, TOKENIZER, tuples, device):
+    for line in train_model(model, TOKENIZER, tuples, device, epochs=epochs, lr=float(lr)):
         progress_lines.append(line)
         yield (
             "\n".join(progress_lines),
@@ -92,7 +92,7 @@ def on_reset(state):
 
 
 @spaces.GPU
-def on_chat(message, history, state):
+def on_chat(message, history, num_beams, state):
     if not message.strip():
         return history, ""
 
@@ -101,7 +101,7 @@ def on_chat(message, history, state):
     else:
         device = _detect_device()
         model = state["model"].to(device)
-        results = infer(model, TOKENIZER, message, device)
+        results = infer(model, TOKENIZER, message, device, num_beams=num_beams)
         model.cpu()  # move back to CPU before ZeroGPU releases the allocation
         response = results[0]
 
@@ -146,10 +146,28 @@ with gr.Blocks(title="EchoBot") as demo:
         with gr.Column(scale=1):
             gr.Markdown("## Training")
             status_display = gr.Markdown("**Status:** Untrained (echoing)")
+            epochs_slider = gr.Slider(
+                minimum=1, maximum=50, step=1, value=10,
+                label="Epochs",
+            )
+            lr_dropdown = gr.Dropdown(
+                choices=[
+                    ("1e-3 — high (aggressive)", "1e-3"),
+                    ("3e-4 — medium (default)", "3e-4"),
+                    ("1e-4 — low (cautious)", "1e-4"),
+                    ("1e-5 — very low (stable)", "1e-5"),
+                ],
+                value="3e-4",
+                label="Learning Rate",
+            )
+            num_beams_slider = gr.Slider(
+                minimum=1, maximum=20, step=1, value=10,
+                label="Inference Beams",
+            )
             train_btn = gr.Button("Train EchoBot", variant="primary")
             progress_display = gr.Textbox(
                 label="Training Progress",
-                lines=14,
+                lines=10,
                 interactive=False,
                 placeholder="Progress will appear here once training starts...",
             )
@@ -176,7 +194,7 @@ with gr.Blocks(title="EchoBot") as demo:
 
     train_btn.click(
         fn=on_train,
-        inputs=[dataset_dropdown, state],
+        inputs=[dataset_dropdown, epochs_slider, lr_dropdown, state],
         outputs=[progress_display, state, status_display, train_btn, reset_btn],
     )
 
@@ -188,13 +206,13 @@ with gr.Blocks(title="EchoBot") as demo:
 
     send_btn.click(
         fn=on_chat,
-        inputs=[chat_input, chatbot, state],
+        inputs=[chat_input, chatbot, num_beams_slider, state],
         outputs=[chatbot, chat_input],
     )
 
     chat_input.submit(
         fn=on_chat,
-        inputs=[chat_input, chatbot, state],
+        inputs=[chat_input, chatbot, num_beams_slider, state],
         outputs=[chatbot, chat_input],
     )
 
