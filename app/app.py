@@ -1,17 +1,9 @@
 import torch
 import gradio as gr
+import spaces
 
 from datasets import DATASETS
 from model import load_fresh_model, train_model, infer, TOKENIZER
-
-# ---------------------------------------------------------------------------
-# Device detection — happens once at startup, shared across all sessions.
-# ---------------------------------------------------------------------------
-DEVICE = "cpu"
-if torch.cuda.is_available():
-    DEVICE = "cuda"
-elif torch.mps.is_available():
-    DEVICE = "mps"
 
 # ---------------------------------------------------------------------------
 # Per-session state factory
@@ -19,7 +11,15 @@ elif torch.mps.is_available():
 
 def make_state():
     """Called by gr.State for each new browser session."""
-    return {"model": None, "trained_on": None, "device": DEVICE}
+    return {"model": None, "trained_on": None}
+
+
+def _detect_device():
+    if torch.cuda.is_available():
+        return "cuda"
+    elif torch.mps.is_available():
+        return "mps"
+    return "cpu"
 
 # ---------------------------------------------------------------------------
 # Event handlers
@@ -30,8 +30,12 @@ def on_dataset_change(dataset_name):
     return pairs
 
 
+@spaces.GPU
 def on_train(dataset_name, state):
     """Generator — yields (progress, state, status, train_btn, reset_btn) after each step."""
+    device = _detect_device()
+    state["device"] = device
+
     yield (
         "Loading T5-base model...",
         state,
@@ -41,7 +45,7 @@ def on_train(dataset_name, state):
     )
 
     model = load_fresh_model()
-    model.to(state["device"])
+    model.to(device) # type:ignore
     tuples = DATASETS[dataset_name]
 
     progress_lines = ["Model loaded. Starting training...", ""]
@@ -53,7 +57,7 @@ def on_train(dataset_name, state):
         gr.update(interactive=False),
     )
 
-    for line in train_model(model, TOKENIZER, tuples, state["device"]):
+    for line in train_model(model, TOKENIZER, tuples, device):
         progress_lines.append(line)
         yield (
             "\n".join(progress_lines),
@@ -87,6 +91,7 @@ def on_reset(state):
     )
 
 
+@spaces.GPU
 def on_chat(message, history, state):
     if not message.strip():
         return history, ""
@@ -94,7 +99,7 @@ def on_chat(message, history, state):
     if state["model"] is None:
         response = message
     else:
-        results = infer(state["model"], TOKENIZER, message, state["device"])
+        results = infer(state["model"], TOKENIZER, message, state.get("device", _detect_device()))
         response = results[0]
 
     history.append({"role": "user", "content": message})
