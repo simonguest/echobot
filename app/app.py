@@ -6,6 +6,7 @@ import pandas as pd
 
 from datasets import DATASETS
 from model import load_fresh_model, train_model, infer, TOKENIZER
+from logo_b64 import LOGO_B64
 
 # ---------------------------------------------------------------------------
 # Per-session state factory
@@ -136,7 +137,7 @@ with gr.Blocks(title="EchoBot", css=".align-bottom { margin-top: auto; margin-bo
 
     gr.HTML(
         '<div style="text-align:center">'
-        '<img src="/gradio_api/file=logo.png" style="display:block;margin:0 auto;height:300px">'
+        f'<img src="data:image/png;base64,{LOGO_B64}" style="display:block;margin:0 auto;height:300px">'
         '<p>Select a dataset, train the model, then chat to see how EchoBot responds!</p>'
         '</div>'
     )
@@ -234,4 +235,4 @@ with gr.Blocks(title="EchoBot", css=".align-bottom { margin-top: auto; margin-bo
     )
 
 demo.queue()
-demo.launch(server_name="0.0.0.0", allowed_paths=["."])
+demo.launch(server_name="0.0.0.0")
