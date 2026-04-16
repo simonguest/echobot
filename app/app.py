@@ -108,7 +108,10 @@ def on_reset(state):
 @spaces.GPU
 def on_chat(message, history, num_beams, state):
     if not message.strip():
-        return history, ""
+        return
+
+    history = history + [{"role": "user", "content": message}]
+    yield history, ""
 
     if state["model"] is None:
         response = message
@@ -119,9 +122,8 @@ def on_chat(message, history, num_beams, state):
         model.cpu()  # move back to CPU before ZeroGPU releases the allocation
         response = results[0]
 
-    history.append({"role": "user", "content": message})
-    history.append({"role": "assistant", "content": response})
-    return history, ""
+    history = history + [{"role": "assistant", "content": response}]
+    yield history, ""
 
 # ---------------------------------------------------------------------------
 # UI
@@ -129,7 +131,7 @@ def on_chat(message, history, num_beams, state):
 
 first_dataset = list(DATASETS.keys())[0]
 
-with gr.Blocks(title="EchoBot") as demo:
+with gr.Blocks(title="EchoBot", css=".align-bottom { margin-top: auto; margin-bottom: auto }") as demo:
     state = gr.State(make_state)
 
     gr.HTML(
@@ -198,7 +200,7 @@ with gr.Blocks(title="EchoBot") as demo:
                     show_label=False,
                     scale=4,
                 )
-                send_btn = gr.Button("Send", scale=1)
+                send_btn = gr.Button("Send", scale=1, elem_classes=["align-bottom"])
 
     # ---- Event wiring ----
     dataset_dropdown.change(
