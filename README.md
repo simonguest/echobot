@@ -65,7 +65,7 @@ logos/                   # Logo images
 
 ```bash
 uv sync
-cd app && python app.py   # http://localhost:7860
+cd app && uv run app.py   # Navigate to http://localhost:7860 (Note: On the first run, the model will take a few seconds to load)
 ```
 
 **With Docker:**
